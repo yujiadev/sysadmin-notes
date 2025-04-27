@@ -151,3 +151,217 @@ If the integrity of the files or packages is verified, there iwll be no output. 
 | G             | Group ownership |
 | T             | File modification time |
 | P             | Capabilities |
+
+## Dependencies and the dnf Command
+Extra packages, things like transmission
+```bash 
+$ sudo dnf install epel-release
+```
+
+### Red Hat Subscription Management
+```bash 
+# Use --force command option to re-register the machine
+subscription-manager register 
+
+# --auto option finds the most appropriate subscription
+subscription-manager attach --auto
+
+# List the available subscriptions. Please take note of the pool IDs.
+subscription-manager list --available
+subscription-manager attach --pool=<your-pool-id-goes-herer>
+
+# Review the current settings
+subscription-manager list
+
+# Show all available repos
+subscription-manager repos
+
+# Show the enabled repos
+subscription-manager repos --list-enabled
+
+# Enable additional repo
+subscription-manager repos --enable=<repo-id-goes-here>
+
+# Confirm the subscribed BaseOS and AppStream
+dnf repolist
+```
+
+## dnf Configuration
+dnf configurations are under /etc/dnf/dnf.conf, /etc/dnf, and /etc/yum.repos.d
+
+```bash 
+# List the current dnf configurations
+dnf config-manager --dump
+```
+
+### dnf.conf
+```bash 
+[root@localhost Packages] cat /etc/dnf/dnf.conf 
+[main]                                # Indicate all the following directives applies to globally
+gpgcheck=1                            # Check the GPG
+installonly_limit=3                   # number of the package listed in the installonlypkgs option can be installed at the same time
+clean_requirements_on_remove=True     # Go through the each package dependency when removing packages
+best=True
+skip_if_unavailable=False             # Try to install the highest version available 
+```
+
+### /etc/dnf/plugins
+The default files in the /etc/dnf/plugins configure a connection between dnf and Red Hat Portal or a local Satellite server.
+
+### /etc/yum.repos.d
+Configuration files in the /etc/yum.repos.d are designed to connect systems to actual dnf repos. Doc available on "man dnf.conf" command
+
+### Create Your Own /etc/yum.repos.d Configuration File
+Create a file name <your-repos-name>.repo in /etc/yum.repos.d
+
+```bash 
+dnf config-manager --add-repo=https://myrepos.example.com
+```
+In the newly create repo file, configurute the name directive for the repo and based url
+
+```bash 
+[test]
+name=myRHtest
+baseurl=http://192.168.122.1/inst
+gpgcheck=0     # it is easier to set to 0 in the test setting but not in production setting!!!
+```
+
+Steps of Creating a new repos config
+```bash 
+# Assuming that there is RHEL DVD are mounted at the system
+mount /dev/cdrom /media
+
+cd /etc/yum.repos.d
+
+# Add the following to the vim (adjust the baseurl accordingly)
+#[test]
+#name=BaseOS
+#baseurl=file:///run/media/yujia/RHEL-9-5-0-BaseOS-x86_64/BaseOS/
+#enabled=1
+#gpgkey=0
+vim rhel9.repo
+
+dnf clean all
+dnf update
+```
+
+For deletion, just remove the .repo file under /etc/yum.repos.d and run "dnf clean all" and "dnf update"
+
+
+## dnf Commands
+
+```bash 
+dnf list
+dnf list | grep package-name
+dnf repolist all
+dnf info samba
+dnf install package-name
+
+# Keep the packages on the system up to date
+dnf update package-name
+
+# Remove a package
+dnf remove package-name
+
+# List available updates
+# dnf check-update
+dnf list updates
+
+# Not sure what to install?
+dnf provides "*/evince*"
+
+# Search for all instances of file with the .repos extension
+# It lists all instances of the packages with files that end with .repo extension, with the associate RPM package.
+# Wildcare is require because "provides" option requires the full path to the file.
+# dnf provides "/etc/systemd/*"
+dnf provides "*/*.repo"
+
+# Download the package
+dnf download cups
+```
+View all directive with dnf config-manager
+```bash 
+#  dnf config-manager --dump | less
+dnf config-manager --dump
+```
+
+## Package Groups and dnf
+dnf command can install and remove package in groups.
+
+```bash 
+# Display the available package groups from the configured repos
+[root@localhost yum.repos.d] dnf group list
+Updating Subscription Management repositories.
+Last metadata expiration check: 0:17:02 ago on Sun 27 Apr 2021 10:27:37 PM CST.
+Available Environment Groups:
+   Server
+   Minimal Install
+   Workstation
+   Virtualization Host
+   Custom Operating System
+Installed Environment Groups:
+   Server with GUI
+Installed Groups:
+   Container Management
+   Headless Management
+Available Groups:
+   RPM Development Tools
+   .NET Development
+   Console Internet Tools
+   Legacy UNIX Compatibility
+   Network Servers
+   Smart Card Support
+   Scientific Support
+   System Tools
+   Development Tools
+   Graphical Administration Tools
+   Security Tools
+```
+
+```bash 
+# Display the available package groups from the configured repos
+dnf group info "Server"
+
+dnf group install "Printing Client"
+
+# Exclude paps and gutenprint-cups packages
+dnf group install "Printing Client" -x paps -x gutentprint-cups
+
+# Remove package group
+dnf group remove "Printing Client"
+```
+
+## Module Stream(*)
+```bash 
+
+# List all modules
+dnf module list
+
+# Get the list of RPM packages that are installed by the PostgreSQL module
+dnf module info postgresql
+
+dnf module info nodejs:18
+
+# --profile shows thte RPM packages that will be installed on each profile
+dnf module info --profile nodejs:18
+```
+
+### Install and Removing Module Streams
+
+d: enable, e: disable, i: installed
+
+To insttall a module stream, the corresponding module stream must be enabled first.
+
+```bash 
+dnf module enable nodejs:18
+dnf module install nodejs
+
+# dnf module install automatically enables a moduels, you can replace the previous commands with the following
+dnf module install nodejs:18
+
+# Remvoing a module
+dnf moduel remove nodejs:18
+
+# "Reset" the stream, disable the stream and resets the configuration to the default settings:
+dnf module reset nodejs
+```
