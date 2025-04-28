@@ -61,20 +61,137 @@ default via 192.168.1.1 dev enp0s25 proto dhcp src 192.168.1.5 metric 100
 -a: all network, -t: TCP, -u: UDP, -n: numeric format, -p: process ID
 
 ```bash 
-yujia@workstation:~/Desktop/sysadmin-notes$ ss -tuna4
-Netid    State     Recv-Q    Send-Q             Local Address:Port         Peer Address:Port   Process    
-udp      UNCONN    0         0                     127.0.0.54:53                0.0.0.0:*                 
-udp      UNCONN    0         0                  127.0.0.53%lo:53                0.0.0.0:*                 
-udp      ESTAB     0         0            192.168.1.5%enp0s25:68            192.168.1.1:67                
-udp      UNCONN    0         0                        0.0.0.0:33698             0.0.0.0:*                 
-udp      UNCONN    0         0                        0.0.0.0:5353              0.0.0.0:*                 
-tcp      LISTEN    0         4096                  127.0.0.54:53                0.0.0.0:*                 
-tcp      LISTEN    0         4096                   127.0.0.1:11434             0.0.0.0:*                 
-tcp      LISTEN    0         128                    127.0.0.1:33211             0.0.0.0:*                 
-tcp      LISTEN    0         4096                   127.0.0.1:631               0.0.0.0:*                 
-tcp      LISTEN    0         4096               127.0.0.53%lo:53                0.0.0.0:*                 
-tcp      ESTAB     0         0                       10.8.0.3:37300        20.44.10.122:443               
-tcp      ESTAB     0         30                      10.8.0.3:47786       140.82.114.25:443               
-tcp      ESTAB     0         0                    192.168.1.5:57566        192.168.1.11:7899              
-tcp      ESTAB     0         0                       10.8.0.3:41352        34.237.73.95:443    
+yujia@workstation:~/Desktop/sysadmin-notes$ ss -tunap4
+Netid State  Recv-Q Send-Q       Local Address:Port   Peer Address:Port Process                           
+udp   UNCONN 0      0               127.0.0.54:53          0.0.0.0:*                                      
+udp   UNCONN 0      0            127.0.0.53%lo:53          0.0.0.0:*                                      
+udp   ESTAB  0      0      192.168.1.5%enp0s25:68      192.168.1.1:67                                     
+udp   UNCONN 0      0                  0.0.0.0:33698       0.0.0.0:*                                      
+udp   UNCONN 0      0                  0.0.0.0:5353        0.0.0.0:*                                      
+tcp   LISTEN 0      4096            127.0.0.54:53          0.0.0.0:*                                      
+tcp   LISTEN 0      4096             127.0.0.1:11434       0.0.0.0:*                                      
+tcp   LISTEN 0      128              127.0.0.1:33211       0.0.0.0:*                                      
+tcp   LISTEN 0      4096             127.0.0.1:631         0.0.0.0:*                                      
+tcp   LISTEN 0      4096         127.0.0.53%lo:53          0.0.0.0:*                                      
+tcp   ESTAB  0      0                 10.8.0.3:43388 140.82.113.26:443   users:(("brave",pid=6296,fd=21)) 
+tcp   ESTAB  0      0              192.168.1.5:57566  192.168.1.11:7899                                   
+tcp   ESTAB  0      0                 10.8.0.3:41352  34.237.73.95:443   users:(("brave",pid=6296,fd=19)) 
 ```
+
+## Network Configuration and Troubleshooting
+
+```bash 
+root@workstation:~# systemctl status NetworkManager
+● NetworkManager.service - Network Manager
+     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; preset: enabled)
+     Active: active (running) since Mon 2025-04-28 08:52:13 +08; 11h ago
+       Docs: man:NetworkManager(8)
+   Main PID: 1970 (NetworkManager)
+      Tasks: 9 (limit: 76585)
+     Memory: 22.8M (peak: 34.7M)
+        CPU: 14.892s
+     CGroup: /system.slice/NetworkManager.service
+             ├─ 1970 /usr/sbin/NetworkManager --no-daemon
+             ├─14940 /usr/libexec/nm-openvpn-service --bus-name org.freedesktop.NetworkManager.openvpn.Co>
+             └─14945 /usr/sbin/openvpn --remote xx.xx.xx.xx 1194 tcp-client --http-proxy 192.168.1.11 789>
+
+Apr 28 18:19:17 workstation NetworkManager[1970]: <info>  [1745835557.6075] device (tun0): Activation: st>
+Apr 28 18:19:17 workstation NetworkManager[1970]: <info>  [1745835557.6077] device (tun0): state change: >
+Apr 28 18:19:17 workstation NetworkManager[1970]: <info>  [1745835557.6082] device (tun0): state change: >
+Apr 28 18:19:17 workstation NetworkManager[1970]: <info>  [1745835557.6086] device (tun0): state change: >
+Apr 28 18:19:17 workstation NetworkManager[1970]: <info>  [1745835557.6089] device (tun0): state change: >
+Apr 28 18:19:17 workstation NetworkManager[1970]: <info>  [1745835557.6483] policy: set 'my-vpn1' (tun0) >
+Apr 28 18:19:17 workstation NetworkManager[1970]: <info>  [1745835557.6487] policy: set 'my-vpn1' (tun0) >
+Apr 28 18:19:17 workstation NetworkManager[1970]: <info>  [1745835557.6517] device (tun0): state change: >
+Apr 28 18:19:17 workstation NetworkManager[1970]: <info>  [1745835557.6521] device (tun0): state change: >
+Apr 28 18:19:17 workstation NetworkManager[1970]: <info>  [1745835557.6528] device (tun0): Activation: su
+```
+RHEL9 uses a service known as Network Manager to monitor and manage network settings (nmcli)
+```bash 
+# Display current status of network devices
+root@workstation:~ nmcli dev status
+DEVICE           TYPE      STATE                   CONNECTION      
+enp0s25          ethernet  connected               Profile 1       
+tun0             tun       connected (externally)  tun0            
+lo               loopback  connected (externally)  lo              
+br-109d1ab6cfb0  bridge    connected (externally)  br-109d1ab6cfb0 
+br-c8dc7a908be4  bridge    connected (externally)  br-c8dc7a908be4 
+docker0          bridge    connected (externally)  docker0         
+vboxnet0         ethernet  unmanaged               --              
+vboxnet1         ethernet  unmanaged               --       
+
+# Restart Network Manager
+root@workstation:~ systemctl restart NetworkManager
+```
+Sometimes the network related issue can't be resolved by restart NetworkManager, then looking into the configuration files under /etc/NetworkManager/system-connections directory is needed.
+
+Each installed network adapter, such as ens3, gets its own **name.nmconnection** configuration file, where **name** is the name of the device or name of the connection.
+
+```bash 
+[root@localhost ~]cat /etc/NetworkManager/system-connections/enp0s3.nmconnection 
+[connection]
+id=enp0s3
+uuid=b4808ad1-7327-361c-aece-d225ff16b02c
+type=ethernet
+autoconnect-priority=-999
+interface-name=enp0s3
+timestamp=1745409147
+
+[ethernet]
+
+[ipv4]
+method=auto     # DHCP
+
+[ipv6]
+addr-gen-mode=eui64
+method=auto
+
+[proxy]
+```
+
+## Network Configuration Tool
+
+### The nmcli Configurattion Tool
+```bash 
+[root@localhost ~] nmcli con show
+NAME    UUID                                  TYPE      DEVICE 
+enp0s3  b4808ad1-7327-361c-aece-d225ff16b02c  ethernet  enp0s3 
+lo      fa19881b-9cbc-47ad-a665-c1397697c9ca  loopback  lo     
+
+# New connection profile
+nmcli con mod "eth0-work" ipv4.dns 192.168.20.1
+
+# S~~witch to the new connection profile
+nmcli con up "eth0-work"
+
+# Prevent a connection from starting automatically at boot
+nmcli con mod "eth0-work" connection.autoconnect no
+```
+
+### Configure Name Resolution
+
+/etc/hostname
+/etc/hosts 
+/etc/resolv.conf
+/etc/nsswitch.conf
+
+#### /etc/nsswitch.conf
+Specify database search priorities for everything from authentication to name service.
+
+```bash 
+# In order of likelihood of use to accelerate lookup.
+shadow:     files
+hosts:      files dns myhostname
+```
+
+Troubleshoot IPv6, "ping6 -I *eth0*" and "tracepath6"
+
+
+## A VERY VERY Genernal Scenario & Solution; In PROD ETL, NET Trace, dump may All Needed
+| Scenario | Solution |
+| -------- | -------- |
+| Networking is donw | Check physical connections. Run **ip link show** to check active interface. Run **systemctl status NetworkManager**. Check IP settings by running **ip addr show**
+| Unable to access remote systems | ping, traceroute, ping6, tracepath6 |
+| Current network settings lead to conflicts | Check network device configuration in **/etc/NetworkManager/system-connections** |
+| Hostname not recognized | Review /etc/hostname, **hostname** command, **hostnamectl** |
+| Remote hostnames not recognized | Review **/etc/hosts** and **/etc/nsswitch.conf**. Check **/etc/resolv.conf** for an appropriate DNS server IP address. Run the **dig** command to test the DNS resolution. |
