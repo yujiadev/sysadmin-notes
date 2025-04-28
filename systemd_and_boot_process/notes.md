@@ -110,3 +110,161 @@ GRUB_DISABLE_RECOVERY: Set to "true" by default, disables the generation of reco
 GRUB_ENABLE_BLSCFG: Tells GRUB 2 to use a special file format, the Boot Loader Specification (BLS).
 
 ## How to Update GRUB2
+
+```bash 
+# Reinstall GRUB2 bootloader
+grub2-install
+
+# When configuration file is generated using grub2-mkconfig,no additional command are required
+# The pointer from the MBR automatically reads the current version of /boot/grub2/grub.config
+grub2-mkconfig
+```
+
+### GRUB2 Command Line
+An error in grub.cfg can result in an unbootable system. If the GRUB2 configuration file is complete missing, the following is shown
+
+```bash 
+grub>
+grub> help
+```
+Access a GRUB2 CMD can be done by pressing c key when menu is displayed.
+
+linux/ and thre press Tab: review teh available fiels in the /boot directory
+ls: find all detected hard drives the system 
+
+By default /boot directory is mounted on a separate partition.
+
+```bash
+# h0: first hard drive 
+# msdos1: the first partition in of the first hard drive (gpt if it is GPT partition)
+# msdos2: the second partition in of the first hard drive (gpt if it is GPT partition)
+grub> ls
+(h0) (h0, msdo1) (hd0, msdo2)
+
+# Display the content of grub.config
+grub> cat (h0,msdos1)/grub2/grub.cfg
+
+# Identify the partiion with the /boot directory
+grub> search.file /grub2/grub.cfg
+
+hd0,msdos1
+
+# If the top level root filesystem is located on a partition, you may even confirm the contents of the /etc/fstab file
+grub> cat (hd0, msdos2)/etc/fstab
+
+# If the root filesystem resides on an LVM volume, load LVM module
+grub> insmod lvm
+grub> ls
+(hd0) (hd0,msdos2) (hd0,msdos1) (lvm/rhel-root) (lvm/rhel-swap)
+```
+
+Boot RHEL9 from GRUB2
+
+```bash 
+# Insert module lvm (logical volume)
+grub> insmod lvm
+
+# List the all the partitions and logical volumes
+grub> ls
+
+# Identify the root partition. This may be named something like "lvm/rhel-root". You may need to poke around to find out
+grub> cat (lvm/rhel-root)/etc/fstab
+
+# Set the root variable to tthe device that you have identified as that containing tthe root fileysystem
+grub> set root=(lvm/rhel-root)
+
+# Enter te linux command, specifies the kernel and root directory partition
+grub> linux (hd0, msdos1)/vmlinz-5.14.0-162.6.1.e19_1.x86_64 root=/dev/mapper/rhel-root
+
+# Enter the initrd command, which specifies the inital RAM disk command and file location
+grub> initrd (hd0,msdos1)/initramfs-5.14.0-162.6.1.e19_1.x86_64.img
+
+# boot into the system
+grub> boot
+```
+
+## Between GRUB 2 and Login
+The loading for Linux depends on a temporary system, initial RAM disk. (/boot/initramfs)
+Once the boot process is complete, control is given to systemd, known as the first process.
+
+1. BIOS
+2. GRUB
+3. initramfs + kernel
+4. load hardware driver
+5. start the first process **systemd**
+6. **systemd** activates all the system units for the initrd.target and mounts the root filesystem under sysroot
+7. **systemd** restarts itself in the new root directory and activates all units for the default target.
+
+## The First Process, Targets, and Units
+Units are the basic buiding blocks of systemd. The most common are service units, which have a **.service** extension and activate a system service.
+
+```bash 
+systemctl list-units --type=service --all
+```
+
+A special type of unit is a **target unit** (suffix with .target), which isused to group together other system units and to transition the system into a different state.
+
+```bash 
+systemctl list-units --type=target --all
+```
+
+Targets are controlled by units, organized in unit files. Although the default target is defined in **/etc/systemd/system**, you can override the default during the boot process from the GRUB 2 menu.
+
+```bash 
+# list target's dependecies
+systemctl list-dependencies graphical.target
+systemctl list-dependencies rsyslog.service
+```
+
+The default target is specified as a symbolic link from the /etc/systemd/system/default.target file to either **multi-user.target** or **graphical.target**
+
+```bash 
+systemctl get-default
+
+systemctl set-default multip-user.target
+```
+
+The **systemctl isolate** command in systemd is used to transition the system to a specific target unit while stopping all unrelated services. 
+
+It’s a powerful tool for switching between system states (e.g., changing from graphical mode to rescue mode) without rebooting.
+
+```bash 
+sudo systemctl isolate multi-user.target  # Switch to CLI mode
+sudo systemctl isolate rescue.target     # Enter rescue mode
+```
+```bash 
+systemd-analyze blame
+```
+
+### Logging
+By default, the journal log files are temporarily stored in RAM in a ring buffer in the /run/log/journal/. To get Linxu to write journal log files persistently on disk run the following
+```bash 
+mkdir /var/log/journal
+journalctl --flush
+```
+
+### Control Groups
+Control groups (cgroups), a feature of the Linux kernel to group process together and control or limit their resource usage (CPU, memory, etc). In systemd, cgroups are primaryily used to track processes and to ensure that all processes that belong to a service are terminated when a service is stopped.
+
+```bash 
+systemd-cgls
+```
+### systemd Units
+systemd relies on teh configuration fiels under **/etc/systemd/system** and **/usr/lib/systemd/system** to start other process
+
+The default configuration files are stored in **/usr/lib/systemd/system**.
+
+Custom files stores in **/etc/systemd/system**
+
+## Time Synchronization (NTP)
+The time synchronization daemon included with RHEL9 is chronyd.
+
+Timezone configuration file location: **/etc/localtime** A symbolic link that points to one of the time zone files in /usr/share/zoneinfo.
+
+```bash 
+ls -l /etc/localtime
+lrwxrwxrwx 1 root root 34 Sep 14  2024 /etc/localtime -> /usr/share/zoneinfo/Asia/Singapore
+
+timedatectl set-timezone America/Los_Angeles
+```
+The default **chronyd** config file locates /etc/chrony.conf
