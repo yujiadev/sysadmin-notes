@@ -96,6 +96,19 @@ Every request gets handled based on the configuration in a single server context
 
 
 root /var/www/html/app1   <--- Set root directory, NGINX combines the root path with the URL to determine the actual file path.
+```nginx
+server {
+    listen 80;
+    server_name app1.com www.app1.com;
+
+    root /var/www/html/app1;
+
+    location /images/ {
+        # /image/ will mapt to /var/www/html/images/
+
+    }
+}
+```
 
 To set a default server in case of hostname is empty.
 ```nginx
@@ -137,3 +150,25 @@ server {
     ...
 }
 ```
+
+### Location Context
+
+Index location block specifies the anme of default files that is sent to client if the file name is not specified.
+
+Location directive can point to different location directives and include regular expression. (longest matching prefix).
+
+Location Modfiiers
+| Modifier | Meaning |
+| :------- | :------ |
+| ~* | Case insensitive search. Ideal for most cases. |
+| ~ | Case sensitive search. |
+| ^~ | Do not check any regular expressions if the matching prefix locatio has ^~ |
+| = | Directs Nginx to do an exact match of URI and location |
+
+### Difference between site-available, site-enabled, /etc/nginx/conf.d
+
+The **site-available** is for storing all of your vhost configurations, enable or not.
+The **site-enabled** contains the symlinks to files in the sites-available folder, allow you to selectively disable vhost by removing the symlink.
+**conf.d** you have to move something out of the directory, delete it or mach chagnes to it when you need to disable somthing.
+
+**site-available** and **site-enabled** is Debina-based package manager installed nginx directories.
