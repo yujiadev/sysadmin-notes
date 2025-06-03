@@ -452,3 +452,94 @@ UUID=c4026f8d-5b37-4426-966b-43f5260911ee /boot                   xfs     defaul
 /dev/mapper/rhel_vbox-home /home                   xfs     defaults        0 0
 /dev/mapper/rhel_vbox-swap none                    swap    defaults        0 0
 ```
+
+In RHEL 9 the default is to use universally unique IDs (UUIDs) to mount non-LVM
+filesystems. UUIDs can represent a partition, a logical volume, or an entire disk drive.
+
+You can verify how partitions are actually mounted in the **/etc/mtab** file.
+
+```bash
+[root@localhost yujia]# cat /etc/mtab 
+proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+sysfs /sys sysfs rw,seclabel,nosuid,nodev,noexec,relatime 0 0
+devtmpfs /dev devtmpfs rw,seclabel,nosuid,size=4096k,nr_inodes=975312,mode=755,inode64 0 0
+securityfs /sys/kernel/security securityfs rw,nosuid,nodev,noexec,relatime 0 0
+tmpfs /dev/shm tmpfs rw,seclabel,nosuid,nodev,inode64 0 0
+devpts /dev/pts devpts rw,seclabel,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000 0 0
+tmpfs /run tmpfs rw,seclabel,nosuid,nodev,size=1573500k,nr_inodes=819200,mode=755,inode64 0 0
+cgroup2 /sys/fs/cgroup cgroup2 rw,seclabel,nosuid,nodev,noexec,relatime,nsdelegate,memory_recursiveprot 0 0
+pstore /sys/fs/pstore pstore rw,seclabel,nosuid,nodev,noexec,relatime 0 0
+bpf /sys/fs/bpf bpf rw,nosuid,nodev,noexec,relatime,mode=700 0 0
+/dev/mapper/rhel_vbox-root / xfs rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0
+selinuxfs /sys/fs/selinux selinuxfs rw,nosuid,noexec,relatime 0 0
+systemd-1 /proc/sys/fs/binfmt_misc autofs rw,relatime,fd=29,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=24078 0 0
+debugfs /sys/kernel/debug debugfs rw,seclabel,nosuid,nodev,noexec,relatime 0 0
+mqueue /dev/mqueue mqueue rw,seclabel,nosuid,nodev,noexec,relatime 0 0
+tracefs /sys/kernel/tracing tracefs rw,seclabel,nosuid,nodev,noexec,relatime 0 0
+hugetlbfs /dev/hugepages hugetlbfs rw,seclabel,relatime,pagesize=2M 0 0
+none /run/credentials/systemd-tmpfiles-setup-dev.service ramfs ro,seclabel,nosuid,nodev,noexec,relatime,mode=700 0 0
+fusectl /sys/fs/fuse/connections fusectl rw,nosuid,nodev,noexec,relatime 0 0
+configfs /sys/kernel/config configfs rw,nosuid,nodev,noexec,relatime 0 0
+none /run/credentials/systemd-sysctl.service ramfs ro,seclabel,nosuid,nodev,noexec,relatime,mode=700 0 0
+/dev/mapper/rhel_vbox-home /home xfs rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0
+/dev/sda1 /boot xfs rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0
+none /run/credentials/systemd-tmpfiles-setup.service ramfs ro,seclabel,nosuid,nodev,noexec,relatime,mode=700 0 0
+tmpfs /run/user/1000 tmpfs rw,seclabel,nosuid,nodev,relatime,size=786748k,nr_inodes=196687,mode=700,uid=1000,gid=1000,inode64 0 0
+gvfsd-fuse /run/user/1000/gvfs fuse.gvfsd-fuse rw,nosuid,nodev,relatime,user_id=1000,group_id=1000 0 0
+portal /run/user/1000/doc fuse.portal rw,nosuid,nodev,relatime,user_id=1000,group_id=1000 0 0
+```
+## Universally Unique Identifiers in /etc/fstab
+Run **blkid** command to identify the UUID for available volumes. 
+
+```bash
+[root@localhost yujia]# blkid /dev/sda2
+/dev/sda2: UUID="QVaXWY-Yp7e-Ddcy-Nuoq-eMZT-B0Lc-Vb0W20" TYPE="LVM2_member" PARTUUID="003423eb-02"
+```
+
+### The mount Command
+**mount** command can be used to attach local and network partitions to specified directories.
+
+```bash
+# To mount all filesystem as currently configured in the /etc/fstab
+mount -a
+```
+
+```bash
+# Not sure about a possible change to the /etc/fstab file. 
+# It is possible to test it out with mount command. 
+# The following command remounts the volume assicate with the /boot directory
+# in read-only mode
+mount -o remount,ro /boot
+
+mount -o loop rhel-baseos-9.1-x86_64-dvd.iso /mnt
+```
+In most cases, it's sufficient to set up a new volume in /etc/fstab with the 
+associated device file, such as /dev/sda6 partition, a UUID, or an LVM device such as /dev/mapper/NewVol-NewLV or /dev/NewVol/NewLV. 
+
+Configurate a CD drive that can be mounted by regular users, add the following to the **/etc/fstab**
+Some common mount options are shown in the following /etc/fstab entry.
+Setting up a mount in read-only mode, does not try to mount it automatically during boot process, and supports access by regular users.
+`
+```bash
+/dev/sr0 /cdrom auto ro,noauto,users 0 0
+```
+
+Network Filesystems
+```bash
+mount -f nfs server1.example.com:/pub /share
+```
+
+```bash
+server1:/pub /share nfs rsize=65536,wsize=65536,hard 0 0 
+```
+**rsize** and **wsize** variables determine the maimum size (in bytes) of the data to be read and wriiten in each request. (Normally this should not be required, client server will negotiate on their own). The **hard** directive specifies that the client will retry failed NFS requests indefinitely. The **soft** option wil lcause the client to fail after a predefined number of retransmission, but at the cost of risking the integrity of the data.
+
+
+## The Automounter
+The automount daemon, aslo known as the automounter or **autofs**
+
+## Mounting via the Automounter
+In REHEL, the relevant configuration files are auto.master, automisc, auto.net, and auto.smb, all in the /etc directory. 
+
+**If you use the automounter, keep the /misc and /net directories free, Red Hat configures automounts on these directories by default, and they won't work if local files or directories are stored there.**
+
