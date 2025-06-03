@@ -342,3 +342,113 @@ Swap volumes must also be activated with the **swapon** command. If the new
 swap volume is recognized, you’ll see it in both the /proc/swaps file and the 
 output to the top command. Second, you’ll need to make sure to configure the 
 new swap volume in the **/etc/fstab** file
+
+## Basic Linux Filesytems and Directories
+|    Directory    | Description           |
+| :-------------: | :-------------------- |
+| /     | The root directory, the top-level directory in FHS. All other directories are subdirectories of root, which is always ;mounted on some volume |
+| /bin  | Essential command-line utilites. Shoudl not be mounted separately; othewise, it could be difficult to get these utilities when user a rescue disk. On RHEL 9, it is a symbolic link to /usr/bin |
+| /boot | Linux startup files, including the linux kernel. The default, 1 GB, is usually sufficient for a typical modular kernel and additional kernels. |
+| /dev  | Hardware and software device drivers for everything from floppy drives to terminals. Do not mount this directory on a separate volume. |
+| /etc  | Most basic configuration files. Do not mount this directory on a separate volume. |
+| /home | Home directories for almost every user. |
+| /lib  | Program libraries for the kernel and various command-line utilities. Do not mount this directory on a separate volume. On RHEL 9, this is a symbolic link to /usr/lib. |
+| /lib64 | Same as /lib, but includes 64-bit libraries. On RHEL 9, this is a symbolic link to /usr/lib64 |
+| /media | The mount point for removeable media, including DVDs and USB disk drives. |
+| /misc  | The standard mount point for local directory mounted via the automounter. |
+| /mnt   | A mount point for temporarily mounted filesystes. |
+| /net   | The stanadrd mount point for network directories mounted via the automounter. |
+| /opt   | Common location for third-path application files |
+| /proc  | A virtual filesystem listing information for currently running kernel-related processes, including device assignments such as IRQ ports, I/O addresses, and DMA channels, as well as kernel-configuration settings such as IP forwarding. As a virtual filesystem, Linux automatically configures it as a separate filesystem in RAM. |
+| /root | The home directory of the root user. Do not mount this directory on a separate volume. |
+| /run  | A tmpfs filesystem for files that should not persist after a reboot. On RHEL 9, this filesystem replace /var/run, which is a symbolic link to /run |
+| /sbin | System administration commands. Don't mount this directory separately. On RHEL 9, this is a symbolic link to /usr/sbin. |
+| /smb  | The standard mount point for remote shared Microsoft network directories mounted via the automounter. |
+| /srv  | Commonly used by various network servers non-Red Hat distributions. |
+| /sys  | Similar to the /proc filesystem. Used to expose information about devices, drivers, and some kernel features. |
+| /tmp | Temporary files. By default, RHEL deletes all fiels in this directory periodically. |
+| /usr | Programs and read-only data. Includes many system administration commands, utilities, and libraries |
+| /var | Variable data, including log files and printer spools. |
+
+## Logical Volume Manager (LVM)
+Logical volume manager (LVM) creates an abstractionlayer between physical devices, such as diska and partitions, and volumes that are formatted with a filesystem. 
+
+On LVM, volume groups are like storage pools, and they aggregate together that capacity of multiple storage devices. Logical volumes reside on volume groups and can span multiple physical disks. 
+
+1. Use **fdisk**, **gdisk**, and **parted** to create partitions and configure to the LVM partition type.
+2. Set those partitions or disk devices as **physical volumes (PV)**
+3. Create **volume groups (VG)** from one or more physical volumes. Volume groups organize the physical storage in a collection of manageable disk chunks known as **physical extents (PEs)**
+4. Use command, those PEs can be organized into **logical volumes (LVs)**
+5. Logcial volumes ar emade of **logcial extents (LE) **, which map to the underlying PEs. Then format and mount the LVs. 
+
+| Volume Type   | Description |
+| ------------- | ----------- |
+| Physical volume (PV) | A PV is a partition or a disk drive initialized to be used by LVM |
+| Physical extent (PE) | A PE is a small uniform segment of disk space. PVs are split into PEs. |
+| Volume group (VG)    | A VG is a storage oool, made of one or more PVs. |
+| Logical extent (LE)  | Every PE is associated with an LE, and these PEs can be combined into a logcial volume |
+| Logical volume (LV) | An LV is a part of a VG and is made of LEs. An LV can be formmated with a filesystem and the mounted on the directory of your choice. |
+
+Usual steps
+1. Create a new PV, pvcreate
+2. Assgin the space from one or more PVs to a VG, vgcreate
+3. Allocate the space from some part of available VGs to an LV, lvcreate
+4. To add space to an existing logical volue, lvextend.
+5. If no spare space on VG, add more to it, vgextend.
+
+```bash
+# Just one PV
+pvcreate /dev/sda1
+
+# More than one PVs to be configured
+pvcreate /dev/sda1 /dev/sda2 /dev/sdb1 /dev/sdb2
+
+vgcreate volumegroup /dev/sda1 /dev/sda2
+
+vgextend volumegroup /dev/sdb1 /dev/sdb2
+
+# Create a logical volume, 
+# This creates a device named /dev/volumegroup/logicalvolume
+# You can format this device as if ti were a regular isk partition
+lvcreate -l number_of_PEs volumegroup -n logicalvolume
+
+# Use vgdisplay command to display the size of the PEs. or specify the size with
+# -s option of the vgcreate commadn when you initalize the VG. 
+# Also you cna use the -L option to set a size in Mib, Gib
+
+# Create an LV name flex of 200Mib
+lvcreate -L 200M volumegroup -n flex
+
+# Remove a logcial volume
+umount /dev/vg_01/lv_01
+lvremove /dev/vg_01/lv_01
+
+# Resize logical volumes
+vgextend vg_00 /dev/sdd1
+vgdisplay vg_00
+lvextend -L 200M /dev/vg_00/lv_00
+```
+
+## Filesytem Management
+To access file in a filesystem, that filesystem must be mounted on a mount point.
+
+Linux normally automate this process using the **/etc/fstab** configuration file.
+
+```bash
+[root@localhost yujia]# cat /etc/fstab 
+
+#
+# /etc/fstab
+# Created by anaconda on Wed Apr 23 11:58:58 2025
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk/'.
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info.
+#
+# After editing this file, run 'systemctl daemon-reload' to update systemd
+# units generated from this file.
+#
+/dev/mapper/rhel_vbox-root /                       xfs     defaults        0 0
+UUID=c4026f8d-5b37-4426-966b-43f5260911ee /boot                   xfs     defaults        0 0
+/dev/mapper/rhel_vbox-home /home                   xfs     defaults        0 0
+/dev/mapper/rhel_vbox-swap none                    swap    defaults        0 0
+```
